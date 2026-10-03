@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Atrangii</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--text:#111;--muted:#6b7280;--accent:#19a463}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,sans-serif}
+header{position:sticky;top:0;z-index:2;padding:18px 16px 12px;background:var(--bg)}
+h1{margin:0;font-size:24px}.sub{color:var(--muted);font-size:13px;margin-top:4px}
+main{padding:0 12px 28px}.card{background:var(--card);border-radius:18px;margin:12px 0;overflow:hidden;box-shadow:0 2px 12px #0000000c}
+.media{width:100%;max-height:520px;object-fit:cover;background:#ddd}.body{padding:14px}
+.caption{white-space:pre-wrap;font-size:15px;line-height:1.45}.date{font-size:12px;color:var(--muted);margin-top:8px}
+.empty{text-align:center;padding:60px 20px;color:var(--muted)}
+.btn{display:block;text-align:center;background:var(--accent);color:white;text-decoration:none;padding:13px;border-radius:12px;margin:12px}
+</style>
+</head>
+<body>
+<header><h1>🔥 Atrangii</h1><div class="sub">New posts</div></header>
+<main id="feed"><div class="empty">Loading...</div></main>
+<script>
+const tg = window.Telegram?.WebApp;
+if(tg){tg.ready();tg.expand();}
+function esc(s){return String(s||'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));}
+function linkify(s){
+  const safe=esc(s);
+  return safe.replace(/((?:https?:\/\/|www\.)[^\s<]+)/gi, (url)=>{
+    let clean=url, tail='';
+    while(/[.,!?;:)]$/.test(clean)){ tail=clean.slice(-1)+tail; clean=clean.slice(0,-1); }
+    const href=/^www\./i.test(clean)?'https://'+clean:clean;
+    return `<a href="${href}" target="_blank" rel="noopener noreferrer">${clean}</a>${tail}`;
+  });
+}
+async function load(){
+  const r=await fetch('/api/posts'); const data=await r.json(); const feed=document.getElementById('feed');
+  if(!data.posts.length){feed.innerHTML='<div class="empty">No posts yet.</div>';return;}
+  feed.innerHTML=data.posts.map(p=>{
+    let media='';
+    if(p.media_url && p.media_type==='photo') media=`<img class="media" loading="lazy" src="${p.media_url}">`;
+    else if(p.media_url && (p.media_type==='video'||p.media_type==='animation')) media=`<video class="media" controls preload="metadata" src="${p.media_url}"></video>`;
+    else if(p.media_url) media=`<a class="btn" href="${p.media_url}" target="_blank">📎 Open file</a>`;
+    const text=linkify(p.caption||p.text||'');
+    return `<article class="card">${media}<div class="body"><div class="caption">${text}</div><div class="date">${esc(new Date(p.created_at).toLocaleString())}</div></div></article>`;
+  }).join('') + `<a class="btn" href="${esc(data.backup_url)}" target="_blank">📢 Backup Channel</a>`;
+}
+load();
+</script>
+</body>
+</html>

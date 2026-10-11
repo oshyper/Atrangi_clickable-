@@ -24,6 +24,7 @@ This version is designed for ONE Railway service running both the Telegram bot a
 ## Important
 
 - Never publish your BotFather token.
+- Keep exactly ONE active Railway replica/service (and no local copy) polling with this bot token. Multiple pollers cause Telegram `Conflict: terminated by other getUpdates request` errors.
 - The bot must be an administrator in the main channel to receive channel-post updates.
 - The private invite link is not enough for the bot to read channel posts.
 - This project captures posts arriving after the bot is installed; it does not import arbitrary old channel history.

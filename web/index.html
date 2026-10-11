@@ -33,6 +33,29 @@ function linkify(s){
     return `<a href="${href}" target="_blank" rel="noopener noreferrer">${clean}</a>${tail}`;
   });
 }
+// Telegram's html_text/html_caption preserves clickable text links and formatting.
+// Rebuild only a small safe allowlist rather than injecting arbitrary HTML.
+function safeTelegramHtml(source){
+  const doc=new DOMParser().parseFromString(String(source||''),'text/html');
+  const allowed=new Set(['B','STRONG','I','EM','U','INS','S','STRIKE','DEL','CODE','PRE','BLOCKQUOTE','A']);
+  function clean(node){
+    if(node.nodeType===Node.TEXT_NODE) return esc(node.nodeValue);
+    if(node.nodeType!==Node.ELEMENT_NODE) return '';
+    const tag=node.tagName;
+    const children=Array.from(node.childNodes).map(clean).join('');
+    if(!allowed.has(tag)) return children;
+    if(tag==='A'){
+      const raw=node.getAttribute('href')||'';
+      try {
+        const url=new URL(raw, location.href);
+        if(!['https:','http:','tg:'].includes(url.protocol)) return children;
+        return `<a href="${esc(url.href)}" target="_blank" rel="noopener noreferrer">${children}</a>`;
+      } catch { return children; }
+    }
+    return `<${tag.toLowerCase()}>${children}</${tag.toLowerCase()}>`;
+  }
+  return Array.from(doc.body.childNodes).map(clean).join('');
+}
 async function load(){
   const r=await fetch('/api/posts'); const data=await r.json(); const feed=document.getElementById('feed');
   if(!data.posts.length){feed.innerHTML='<div class="empty">No posts yet.</div>';return;}
@@ -41,7 +64,9 @@ async function load(){
     if(p.media_url && p.media_type==='photo') media=`<img class="media" loading="lazy" src="${p.media_url}">`;
     else if(p.media_url && (p.media_type==='video'||p.media_type==='animation')) media=`<video class="media" controls preload="metadata" src="${p.media_url}"></video>`;
     else if(p.media_url) media=`<a class="btn" href="${p.media_url}" target="_blank">📎 Open file</a>`;
-    const text=linkify(p.caption||p.text||'');
+    const rawText=p.caption||p.text||'';
+    const telegramHtml=p.html_caption||p.html_text||'';
+    const text=telegramHtml?safeTelegramHtml(telegramHtml):linkify(rawText);
     return `<article class="card">${media}<div class="body"><div class="caption">${text}</div><div class="date">${esc(new Date(p.created_at).toLocaleString())}</div></div></article>`;
   }).join('') + `<a class="btn" href="${esc(data.backup_url)}" target="_blank">📢 Backup Channel</a>`;
 }

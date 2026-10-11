@@ -33,8 +33,6 @@ def init_db():
             ("blocked_at", "TEXT"),
             ("last_broadcast_at", "TEXT"),
             ("last_broadcast_status", "TEXT DEFAULT ''"),
-            ("html_text", "TEXT DEFAULT ''"),
-            ("html_caption", "TEXT DEFAULT ''"),
         ]:
             if name not in cols:
                 c.execute(f"ALTER TABLE users ADD COLUMN {name} {definition}")
@@ -122,8 +120,8 @@ def add_post(channel_id, message_id, text="", media_type="", file_id="", caption
     now = _now()
     with conn() as c:
         c.execute("""INSERT OR IGNORE INTO posts
-                     (channel_id,message_id,text,media_type,file_id,caption,created_at)
-                     VALUES(?,?,?,?,?,?,?)""",
+                     (channel_id,message_id,text,media_type,file_id,caption,html_text,html_caption,created_at)
+                     VALUES(?,?,?,?,?,?,?,?,?)""",
                   (str(channel_id), message_id, text or "", media_type or "",
                    file_id or "", caption or "", html_text or "", html_caption or "", now))
 

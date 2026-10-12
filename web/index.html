@@ -18,7 +18,7 @@ main{padding:0 12px 28px}.card{background:var(--card);border-radius:18px;margin:
 </style>
 </head>
 <body>
-<header><h1>🔥 Atrangii</h1><div class="sub">New posts</div></header>
+<header><h1>馃敟 Atrangii</h1><div class="sub">New posts</div></header>
 <main id="feed"><div class="empty">Loading...</div></main>
 <script>
 const tg = window.Telegram?.WebApp;
@@ -64,12 +64,12 @@ async function load(){
     let media='';
     if(p.media_url && p.media_type==='photo') media=`<img class="media" loading="lazy" src="${p.media_url}">`;
     else if(p.media_url && (p.media_type==='video'||p.media_type==='animation')) media=`<video class="media" controls preload="metadata" src="${p.media_url}"></video>`;
-    else if(p.media_url) media=`<a class="btn" href="${p.media_url}" target="_blank">📎 Open file</a>`;
+    else if(p.media_url) media=`<a class="btn" href="${p.media_url}" target="_blank">馃搸 Open file</a>`;
     const rawText=p.caption||p.text||'';
     const telegramHtml=p.html_caption||p.html_text||'';
     const text=telegramHtml?safeTelegramHtml(telegramHtml):linkify(rawText);
     return `<article class="card">${media}<div class="body"><div class="caption">${text}</div><div class="date">${esc(new Date(p.created_at).toLocaleString())}</div></div></article>`;
-  }).join('') + `<a class="btn" href="${esc(data.backup_url)}" target="_blank">📢 Backup Channel</a>`;
+  }).join('') + `<a class="btn" href="${esc(data.backup_url)}" target="_blank">馃摙 Backup Channel</a>`;
 }
 // In Telegram's in-app browser, explicitly open external URLs through the WebApp API.
 document.addEventListener('click', (event)=>{

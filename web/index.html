@@ -12,7 +12,7 @@ header{position:sticky;top:0;z-index:2;padding:18px 16px 12px;background:var(--b
 h1{margin:0;font-size:24px}.sub{color:var(--muted);font-size:13px;margin-top:4px}
 main{padding:0 12px 28px}.card{background:var(--card);border-radius:18px;margin:12px 0;overflow:hidden;box-shadow:0 2px 12px #0000000c}
 .media{width:100%;max-height:520px;object-fit:cover;background:#ddd}.body{padding:14px}
-.caption{white-space:pre-wrap;font-size:15px;line-height:1.45}.date{font-size:12px;color:var(--muted);margin-top:8px}
+.caption{white-space:pre-wrap;font-size:15px;line-height:1.45;overflow-wrap:anywhere}.caption a{color:#006fcf;text-decoration:underline;text-decoration-thickness:1.5px;cursor:pointer;overflow-wrap:anywhere;pointer-events:auto}.date{font-size:12px;color:var(--muted);margin-top:8px}
 .empty{text-align:center;padding:60px 20px;color:var(--muted)}
 .btn{display:block;text-align:center;background:var(--accent);color:white;text-decoration:none;padding:13px;border-radius:12px;margin:12px}
 </style>
@@ -38,11 +38,12 @@ function linkify(s){
 function safeTelegramHtml(source){
   const doc=new DOMParser().parseFromString(String(source||''),'text/html');
   const allowed=new Set(['B','STRONG','I','EM','U','INS','S','STRIKE','DEL','CODE','PRE','BLOCKQUOTE','A']);
-  function clean(node){
-    if(node.nodeType===Node.TEXT_NODE) return esc(node.nodeValue);
+  function clean(node, insideAnchor=false){
+    // Plain URLs may appear as text nodes in Telegram HTML; convert them to links too.
+    if(node.nodeType===Node.TEXT_NODE) return insideAnchor ? esc(node.nodeValue) : linkify(node.nodeValue);
     if(node.nodeType!==Node.ELEMENT_NODE) return '';
     const tag=node.tagName;
-    const children=Array.from(node.childNodes).map(clean).join('');
+    const children=Array.from(node.childNodes).map(child=>clean(child, insideAnchor || tag==='A')).join('');
     if(!allowed.has(tag)) return children;
     if(tag==='A'){
       const raw=node.getAttribute('href')||'';
@@ -57,7 +58,7 @@ function safeTelegramHtml(source){
   return Array.from(doc.body.childNodes).map(clean).join('');
 }
 async function load(){
-  const r=await fetch('/api/posts'); const data=await r.json(); const feed=document.getElementById('feed');
+  const r=await fetch('/api/posts', {cache:'no-store'}); const data=await r.json(); const feed=document.getElementById('feed');
   if(!data.posts.length){feed.innerHTML='<div class="empty">No posts yet.</div>';return;}
   feed.innerHTML=data.posts.map(p=>{
     let media='';
@@ -70,6 +71,16 @@ async function load(){
     return `<article class="card">${media}<div class="body"><div class="caption">${text}</div><div class="date">${esc(new Date(p.created_at).toLocaleString())}</div></div></article>`;
   }).join('') + `<a class="btn" href="${esc(data.backup_url)}" target="_blank">📢 Backup Channel</a>`;
 }
+// In Telegram's in-app browser, explicitly open external URLs through the WebApp API.
+document.addEventListener('click', (event)=>{
+  const a=event.target.closest('a[href]');
+  if(!a) return;
+  let url;
+  try { url=new URL(a.href, location.href); } catch { return; }
+  if(!['https:','http:'].includes(url.protocol)) return;
+  if(url.origin===location.origin && url.pathname.startsWith('/api/')) return;
+  if(tg && typeof tg.openLink==='function') { event.preventDefault(); tg.openLink(url.href); }
+});
 load();
 </script>
 </body>

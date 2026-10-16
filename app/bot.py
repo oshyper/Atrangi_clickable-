@@ -5,6 +5,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from aiogram.exceptions import TelegramRetryAfter, TelegramForbiddenError, TelegramBadRequest
+from aiogram.utils.text_decorations import html_decoration
 
 from app.config import BOT_TOKEN, APP_URL, BACKUP_CHANNEL_URL, MAIN_CHANNEL_ID, ADMIN_IDS
 from app.db import (
@@ -22,8 +23,8 @@ broadcast_cancel = set()
 
 def main_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📱 Open Channel", web_app=WebAppInfo(url=APP_URL))],
-        [InlineKeyboardButton(text="📢 Backup Channel", url=BACKUP_CHANNEL_URL)]
+        [InlineKeyboardButton(text="馃摫 Open Channel", web_app=WebAppInfo(url=APP_URL))],
+        [InlineKeyboardButton(text="馃摙 Backup Channel", url=BACKUP_CHANNEL_URL)]
     ])
 
 
@@ -32,13 +33,13 @@ def is_admin(message: Message) -> bool:
 
 
 async def send_broadcast_report(admin_id: int, total: int, sent: int, failed: int, cancelled: bool = False):
-    status = "🛑 Cancelled" if cancelled else "✅ Completed"
+    status = "馃洃 Cancelled" if cancelled else "鉁� Completed"
     await bot.send_message(
         admin_id,
-        f"📢 <b>Broadcast {status}</b>\n\n"
-        f"👥 Total: <b>{total}</b>\n"
-        f"✅ Sent: <b>{sent}</b>\n"
-        f"❌ Failed: <b>{failed}</b>",
+        f"馃摙 <b>Broadcast {status}</b>\n\n"
+        f"馃懃 Total: <b>{total}</b>\n"
+        f"鉁� Sent: <b>{sent}</b>\n"
+        f"鉂� Failed: <b>{failed}</b>",
         parse_mode="HTML"
     )
 
@@ -54,15 +55,15 @@ async def broadcast_message(source: Message, admin_id: int):
     broadcast_cancel.discard(admin_id)
 
     if total == 0:
-        await bot.send_message(admin_id, "👥 Abhi koi registered user nahi hai.")
+        await bot.send_message(admin_id, "馃懃 Abhi koi registered user nahi hai.")
         return
 
     progress_msg = await bot.send_message(
         admin_id,
-        f"📢 <b>Broadcast started...</b>\n\n"
-        f"👥 Total users: <b>{total}</b>\n"
-        f"⏳ Sent: <b>0</b> | ❌ Failed: <b>0</b>\n\n"
-        f"🛑 Cancel: /cancel",
+        f"馃摙 <b>Broadcast started...</b>\n\n"
+        f"馃懃 Total users: <b>{total}</b>\n"
+        f"鈴� Sent: <b>0</b> | 鉂� Failed: <b>0</b>\n\n"
+        f"馃洃 Cancel: /cancel",
         parse_mode="HTML"
     )
 
@@ -120,12 +121,12 @@ async def broadcast_message(source: Message, admin_id: int):
         if index == 1 or index % 25 == 0 or index == total:
             try:
                 await progress_msg.edit_text(
-                    f"📢 <b>Broadcast in progress...</b>\n\n"
-                    f"👥 Total: <b>{total}</b>\n"
-                    f"📨 Processed: <b>{index}/{total}</b>\n"
-                    f"✅ Sent: <b>{sent}</b>\n"
-                    f"❌ Failed: <b>{failed}</b>\n\n"
-                    f"🛑 Cancel: /cancel",
+                    f"馃摙 <b>Broadcast in progress...</b>\n\n"
+                    f"馃懃 Total: <b>{total}</b>\n"
+                    f"馃摠 Processed: <b>{index}/{total}</b>\n"
+                    f"鉁� Sent: <b>{sent}</b>\n"
+                    f"鉂� Failed: <b>{failed}</b>\n\n"
+                    f"馃洃 Cancel: /cancel",
                     parse_mode="HTML"
                 )
             except Exception:
@@ -139,8 +140,8 @@ async def start(message: Message):
     u = message.from_user
     upsert_user(u.id, u.username, u.first_name)
     await message.answer(
-        "🔥 <b>Welcome!</b> ✅\n\n"
-        "👇 Post dekhne ke liye <b>Open Channel</b> par click karo 😉♦️",
+        "馃敟 <b>Welcome!</b> 鉁匼n\n"
+        "馃憞 Post dekhne ke liye <b>Open Channel</b> par click karo 馃槈鈾︼笍",
         reply_markup=main_keyboard(),
         parse_mode="HTML"
     )
@@ -152,11 +153,11 @@ async def stats(message: Message):
         return
     s = member_stats()
     await message.answer(
-        "📊 <b>Member Statistics</b>\n\n"
-        f"👥 Total registered: <b>{s['total']}</b>\n"
-        f"🟢 Active: <b>{s['active']}</b>\n"
-        f"🔴 Blocked/inaccessible: <b>{s['blocked']}</b>\n"
-        f"🔥 Active in last 7 days: <b>{s['active_7d']}</b>",
+        "馃搳 <b>Member Statistics</b>\n\n"
+        f"馃懃 Total registered: <b>{s['total']}</b>\n"
+        f"馃煝 Active: <b>{s['active']}</b>\n"
+        f"馃敶 Blocked/inaccessible: <b>{s['blocked']}</b>\n"
+        f"馃敟 Active in last 7 days: <b>{s['active_7d']}</b>",
         parse_mode="HTML"
     )
 
@@ -174,7 +175,7 @@ async def broadcast_command(message: Message):
         broadcast_waiting.discard(admin_id)
         await bot.send_message(
             admin_id,
-            "⏳ Broadcast prepare ho raha hai..."
+            "鈴� Broadcast prepare ho raha hai..."
         )
         await broadcast_message(message.reply_to_message, admin_id)
         return
@@ -183,7 +184,7 @@ async def broadcast_command(message: Message):
     text = (message.text or "").split(maxsplit=1)
     if len(text) > 1 and text[1].strip():
         broadcast_waiting.discard(admin_id)
-        await bot.send_message(admin_id, "⏳ Text broadcast prepare ho raha hai...")
+        await bot.send_message(admin_id, "鈴� Text broadcast prepare ho raha hai...")
         source = await bot.send_message(admin_id, text[1].strip())
         await broadcast_message(source, admin_id)
         try:
@@ -193,13 +194,13 @@ async def broadcast_command(message: Message):
         return
 
     await message.answer(
-        "📢 <b>Advanced Broadcast</b>\n\n"
+        "馃摙 <b>Advanced Broadcast</b>\n\n"
         "Broadcast karne ke 2 tarike:\n\n"
-        "1️⃣ Kisi <b>photo/video/document/text</b> ko reply karke "
+        "1锔忊儯 Kisi <b>photo/video/document/text</b> ko reply karke "
         "<code>/broadcast</code> bhejo.\n\n"
-        "2️⃣ Direct text ke liye:\n"
+        "2锔忊儯 Direct text ke liye:\n"
         "<code>/broadcast Hello everyone!</code>\n\n"
-        "🛑 Broadcast cancel karne ke liye <code>/cancel</code> bhejo.",
+        "馃洃 Broadcast cancel karne ke liye <code>/cancel</code> bhejo.",
         parse_mode="HTML"
     )
 
@@ -212,11 +213,11 @@ async def cancel_broadcast(message: Message):
     admin_id = message.from_user.id
     if admin_id in broadcast_waiting:
         broadcast_waiting.discard(admin_id)
-        await message.answer("❌ Broadcast message selection cancel kar di gayi.")
+        await message.answer("鉂� Broadcast message selection cancel kar di gayi.")
         return
 
     broadcast_cancel.add(admin_id)
-    await message.answer("🛑 Running broadcast ko cancel karne ka request bhej diya gaya hai.")
+    await message.answer("馃洃 Running broadcast ko cancel karne ka request bhej diya gaya hai.")
 
 
 @dp.message()
@@ -231,7 +232,7 @@ async def broadcast_waiting_message(message: Message):
         return
 
     broadcast_waiting.discard(admin_id)
-    await bot.send_message(admin_id, "⏳ Broadcast prepare ho raha hai...")
+    await bot.send_message(admin_id, "鈴� Broadcast prepare ho raha hai...")
     await broadcast_message(message, admin_id)
 
 
@@ -255,7 +256,7 @@ async def channel_post(message: Message):
         media_type, file_id = "document", message.document.file_id
 
     html_text = message.html_text if message.text else ""
-    html_caption = message.html_caption if message.caption else ""
+    html_caption = html_decoration.unparse(caption, message.caption_entities or []) if caption else ""
     add_post(message.chat.id, message.message_id, text, media_type, file_id, caption, html_text, html_caption)
 
     # Notify users about the new post.
@@ -266,8 +267,8 @@ async def channel_post(message: Message):
 
     if users:
         msg = (
-            "🔥 <b>1 New Post Uploaded!</b> ✅\n\n"
-            "👇 <b>Tap below to view</b>"
+            "馃敟 <b>1 New Post Uploaded!</b> 鉁匼n\n"
+            "馃憞 <b>Tap below to view</b>"
         )
         for uid in users:
             try:

@@ -140,8 +140,8 @@ async def start(message: Message):
     u = message.from_user
     upsert_user(u.id, u.username, u.first_name)
     await message.answer(
-        "Welcome!\n\n"
-        "Post dekhne ke liye <b>Open Channel</b> par click karo.",
+        "🔥 Welcome! ✅\n\n"
+        "👇 Post dekhne ke liye <b>Open Channel</b> par click karo 😉♦️",
         reply_markup=main_keyboard(),
         parse_mode="HTML"
     )
@@ -267,8 +267,8 @@ async def channel_post(message: Message):
 
     if users:
         msg = (
-            "1 New Post Uploaded!\n\n"
-            "Tap below to view"
+            "🔥 1 New Post Uploaded! ✅\n\n"
+            "👇 Tap below to view"
         )
         for uid in users:
             try:

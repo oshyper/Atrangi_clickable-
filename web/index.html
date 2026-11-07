@@ -1,88 +1,277 @@
-
 <!doctype html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Atrangii</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-:root{--bg:#f4f6f8;--card:#fff;--text:#111;--muted:#6b7280;--accent:#19a463}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,sans-serif}
-header{position:sticky;top:0;z-index:2;padding:18px 16px 12px;background:var(--bg)}
-h1{margin:0;font-size:24px}.sub{color:var(--muted);font-size:13px;margin-top:4px}
-main{padding:0 12px 28px}.card{background:var(--card);border-radius:18px;margin:12px 0;overflow:hidden;box-shadow:0 2px 12px #0000000c}
-.media{width:100%;max-height:520px;object-fit:cover;background:#ddd}.body{padding:14px}
-.caption{white-space:pre-wrap;font-size:15px;line-height:1.45;overflow-wrap:anywhere}.caption a{color:#006fcf;text-decoration:underline;text-decoration-thickness:1.5px;cursor:pointer;overflow-wrap:anywhere;pointer-events:auto}.date{font-size:12px;color:var(--muted);margin-top:8px}
+:root{
+  --bg:#f4f6f8;--card:#ffffff;--text:#111111;--muted:#6b7280;--accent:#19a463;--link:#006fcf;--shadow:#0000000c;
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0f1115;--card:#1a1d23;--text:#eef0f3;--muted:#9aa3af;--link:#6ab3f3;--shadow:#00000040}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  padding-bottom:env(safe-area-inset-bottom)}
+header{position:sticky;top:0;z-index:5;padding:16px 16px 10px;background:var(--bg);display:flex;align-items:center;justify-content:space-between}
+h1{margin:0;font-size:24px}
+.sub{color:var(--muted);font-size:13px;margin-top:4px}
+#refresh{border:0;background:var(--card);color:var(--text);width:38px;height:38px;border-radius:50%;font-size:18px;cursor:pointer;box-shadow:0 2px 8px var(--shadow)}
+#refresh.spin{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#newpill{position:fixed;top:68px;left:50%;transform:translateX(-50%);z-index:6;background:var(--accent);color:#fff;border:0;
+  padding:9px 18px;border-radius:999px;font-size:14px;font-weight:600;box-shadow:0 4px 14px #0003;cursor:pointer}
+main{padding:0 12px 12px}
+.card{background:var(--card);border-radius:18px;margin:12px 0;overflow:hidden;box-shadow:0 2px 12px var(--shadow)}
+.media{display:block;width:100%;max-height:520px;object-fit:cover;background:#8884}
+video.media,audio.media{object-fit:contain;background:#000}
+audio.media{background:none;padding:10px 12px;max-height:none}
+.grid{display:grid;gap:3px}
+.grid.n2{grid-template-columns:1fr 1fr}
+.grid.n3{grid-template-columns:1fr 1fr}.grid.n3>:first-child{grid-column:1/-1}
+.grid.n4{grid-template-columns:1fr 1fr}
+.grid .media{height:100%;max-height:none;aspect-ratio:1/1}
+.grid.n3>:first-child .media{aspect-ratio:16/9}
+.body{padding:14px}
+.caption{white-space:pre-wrap;font-size:15px;line-height:1.45;overflow-wrap:anywhere}
+.caption:empty{display:none}
+.caption a{color:var(--link);text-decoration:underline;text-decoration-thickness:1.5px;cursor:pointer;overflow-wrap:anywhere}
+.caption pre,.caption code{font-family:ui-monospace,Menlo,Consolas,monospace;background:#8882;border-radius:6px;padding:1px 5px}
+.caption pre{padding:10px;overflow-x:auto}
+.caption blockquote{margin:6px 0;padding-left:10px;border-left:3px solid var(--accent)}
+.meta{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted);margin-top:8px}
+.meta a{color:var(--muted)}
 .empty{text-align:center;padding:60px 20px;color:var(--muted)}
-.btn{display:block;text-align:center;background:var(--accent);color:white;text-decoration:none;padding:13px;border-radius:12px;margin:12px}
+.empty button,.btn{display:block;text-align:center;background:var(--accent);color:#fff;text-decoration:none;padding:13px;border-radius:12px;margin:12px;border:0;font-size:15px;cursor:pointer}
+.empty button{display:inline-block;margin:14px 0 0}
+.file{display:flex;align-items:center;gap:10px;margin:12px;padding:12px;border-radius:12px;background:#8881;color:var(--text);text-decoration:none;overflow-wrap:anywhere}
+.file small{color:var(--muted);display:block}
+.skeleton{height:260px;position:relative}
+.skeleton::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,#8882,transparent);animation:shimmer 1.2s infinite}
+@keyframes shimmer{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+#sentinel{height:1px}
+#lightbox{position:fixed;inset:0;z-index:20;background:#000e;display:none;align-items:center;justify-content:center;padding:12px}
+#lightbox.open{display:flex}
+#lightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px}
 </style>
 </head>
 <body>
-<header><h1>馃敟 Atrangii</h1><div class="sub">New posts</div></header>
-<main id="feed"><div class="empty">Loading...</div></main>
+<header>
+  <div><h1>🔥 Atrangii</h1><div class="sub">New posts</div></div>
+  <button id="refresh" aria-label="Refresh" title="Refresh">⟳</button>
+</header>
+<button id="newpill" hidden>↑ New posts</button>
+<main id="feed"></main>
+<div id="sentinel"></div>
+<div id="footer"></div>
+<div id="lightbox"><img alt=""></div>
+
 <script>
 const tg = window.Telegram?.WebApp;
-if(tg){tg.ready();tg.expand();}
-function esc(s){return String(s||'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));}
-function linkify(s){
-  const safe=esc(s);
-  return safe.replace(/((?:https?:\/\/|www\.)[^\s<]+)/gi, (url)=>{
-    let clean=url, tail='';
-    while(/[.,!?;:)]$/.test(clean)){ tail=clean.slice(-1)+tail; clean=clean.slice(0,-1); }
-    const href=/^www\./i.test(clean)?'https://'+clean:clean;
+if (tg) {
+  tg.ready(); tg.expand();
+  // Follow the user's Telegram theme (light/dark/custom colours).
+  const p = tg.themeParams || {}, root = document.documentElement.style;
+  if (p.bg_color) root.setProperty('--bg', p.bg_color);
+  if (p.text_color) root.setProperty('--text', p.text_color);
+  if (p.hint_color) root.setProperty('--muted', p.hint_color);
+  if (p.link_color) root.setProperty('--link', p.link_color);
+  if (p.secondary_bg_color) root.setProperty('--card', p.secondary_bg_color);
+}
+
+const $ = id => document.getElementById(id);
+const feed = $('feed'), sentinel = $('sentinel'), footer = $('footer'), pill = $('newpill'), refreshBtn = $('refresh');
+const authHeaders = tg?.initData ? { 'X-Init-Data': tg.initData } : {};
+
+let cursor = null, loading = false, finished = false, topId = 0, backupUrl = '';
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function linkify(s) {
+  return esc(s).replace(/((?:https?:\/\/|www\.)[^\s<]+)/gi, url => {
+    let clean = url, tail = '';
+    while (/[.,!?;:)]$/.test(clean)) { tail = clean.slice(-1) + tail; clean = clean.slice(0, -1); }
+    const href = /^www\./i.test(clean) ? 'https://' + clean : clean;
     return `<a href="${href}" target="_blank" rel="noopener noreferrer">${clean}</a>${tail}`;
   });
 }
-// Telegram's html_text/html_caption preserves clickable text links and formatting.
+// Telegram's html_text/html_caption keeps clickable text links and formatting.
 // Rebuild only a small safe allowlist rather than injecting arbitrary HTML.
-function safeTelegramHtml(source){
-  const doc=new DOMParser().parseFromString(String(source||''),'text/html');
-  const allowed=new Set(['B','STRONG','I','EM','U','INS','S','STRIKE','DEL','CODE','PRE','BLOCKQUOTE','A']);
-  function clean(node, insideAnchor=false){
-    // Plain URLs may appear as text nodes in Telegram HTML; convert them to links too.
-    if(node.nodeType===Node.TEXT_NODE) return insideAnchor ? esc(node.nodeValue) : linkify(node.nodeValue);
-    if(node.nodeType!==Node.ELEMENT_NODE) return '';
-    const tag=node.tagName;
-    const children=Array.from(node.childNodes).map(child=>clean(child, insideAnchor || tag==='A')).join('');
-    if(!allowed.has(tag)) return children;
-    if(tag==='A'){
-      const raw=node.getAttribute('href')||'';
+function safeTelegramHtml(source) {
+  const doc = new DOMParser().parseFromString(String(source || ''), 'text/html');
+  const allowed = new Set(['B','STRONG','I','EM','U','INS','S','STRIKE','DEL','CODE','PRE','BLOCKQUOTE','A']);
+  function clean(node, insideAnchor = false) {
+    if (node.nodeType === Node.TEXT_NODE) return insideAnchor ? esc(node.nodeValue) : linkify(node.nodeValue);
+    if (node.nodeType !== Node.ELEMENT_NODE) return '';
+    const tag = node.tagName;
+    const children = Array.from(node.childNodes).map(ch => clean(ch, insideAnchor || tag === 'A')).join('');
+    if (!allowed.has(tag)) return tag === 'BR' ? '<br>' : children;
+    if (tag === 'A') {
+      const raw = node.getAttribute('href') || '';
       try {
-        const url=new URL(raw, location.href);
-        if(!['https:','http:','tg:'].includes(url.protocol)) return children;
+        const url = new URL(raw, location.href);
+        if (!['https:', 'http:', 'tg:'].includes(url.protocol)) return children;
         return `<a href="${esc(url.href)}" target="_blank" rel="noopener noreferrer">${children}</a>`;
       } catch { return children; }
     }
-    return `<${tag.toLowerCase()}>${children}</${tag.toLowerCase()}>`;
+    const t = tag.toLowerCase();
+    return `<${t}>${children}</${t}>`;
   }
-  return Array.from(doc.body.childNodes).map(clean).join('');
+  return Array.from(doc.body.childNodes).map(n => clean(n)).join('');
 }
-async function load(){
-  const r=await fetch('/api/posts', {cache:'no-store'}); const data=await r.json(); const feed=document.getElementById('feed');
-  if(!data.posts.length){feed.innerHTML='<div class="empty">No posts yet.</div>';return;}
-  feed.innerHTML=data.posts.map(p=>{
-    let media='';
-    if(p.media_url && p.media_type==='photo') media=`<img class="media" loading="lazy" src="${p.media_url}">`;
-    else if(p.media_url && (p.media_type==='video'||p.media_type==='animation')) media=`<video class="media" controls preload="metadata" src="${p.media_url}"></video>`;
-    else if(p.media_url) media=`<a class="btn" href="${p.media_url}" target="_blank">馃搸 Open file</a>`;
-    const rawText=p.caption||p.text||'';
-    const telegramHtml=p.html_caption||p.html_text||'';
-    const text=telegramHtml?safeTelegramHtml(telegramHtml):linkify(rawText);
-    return `<article class="card">${media}<div class="body"><div class="caption">${text}</div><div class="date">${esc(new Date(p.created_at).toLocaleString())}</div></div></article>`;
-  }).join('') + `<a class="btn" href="${esc(data.backup_url)}" target="_blank">馃摙 Backup Channel</a>`;
+
+function timeAgo(iso) {
+  const d = new Date(iso); if (isNaN(d)) return '';
+  const s = Math.floor((Date.now() - d) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  if (s < 7 * 86400) return Math.floor(s / 86400) + 'd ago';
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
-// In Telegram's in-app browser, explicitly open external URLs through the WebApp API.
-document.addEventListener('click', (event)=>{
-  const a=event.target.closest('a[href]');
-  if(!a) return;
-  let url;
-  try { url=new URL(a.href, location.href); } catch { return; }
-  if(!['https:','http:'].includes(url.protocol)) return;
-  if(url.origin===location.origin && url.pathname.startsWith('/api/')) return;
-  if(tg && typeof tg.openLink==='function') { event.preventDefault(); tg.openLink(url.href); }
+function fmtSize(b) {
+  if (!b) return '';
+  const u = ['B','KB','MB','GB']; let i = 0;
+  while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
+  return b.toFixed(i ? 1 : 0) + ' ' + u[i];
+}
+
+function renderItem(it, post) {
+  const url = esc(it.url || ''), thumb = it.thumb ? ` poster="${esc(it.thumb)}"` : '';
+  if (it.too_large) {
+    const link = post.tg_link
+      ? `<a class="file" href="${esc(post.tg_link)}" target="_blank">📺<span>Too large to preview here<small>Tap to open in Telegram${it.size ? ' · ' + fmtSize(it.size) : ''}</small></span></a>`
+      : `<div class="file">📺<span>Too large to preview here<small>Open the channel to view it</small></span></div>`;
+    return link;
+  }
+  if (!it.url) return '';
+  if (it.type === 'photo' || (it.type === 'document' && it.mime.startsWith('image/')))
+    return `<img class="media" loading="lazy" decoding="async" src="${url}" data-full="${url}" alt="">`;
+  if (it.type === 'animation')
+    return `<video class="media" autoplay muted loop playsinline preload="metadata"${thumb} src="${url}"></video>`;
+  if (it.type === 'video' || it.type === 'video_note')
+    return `<video class="media" controls playsinline preload="${it.thumb ? 'none' : 'metadata'}"${thumb} src="${url}"></video>`;
+  if (it.type === 'audio' || it.type === 'voice')
+    return `<audio class="media" controls preload="none" src="${url}"></audio>`;
+  return `<a class="file" href="${url}" target="_blank">📎<span>${esc(it.name || 'Open file')}<small>${esc(fmtSize(it.size))}</small></span></a>`;
+}
+
+function renderPost(p) {
+  let media = '';
+  if (p.items.length === 1) media = renderItem(p.items[0], p);
+  else if (p.items.length > 1) {
+    const cls = p.items.length === 2 ? 'n2' : p.items.length === 3 ? 'n3' : 'n4';
+    media = `<div class="grid ${cls}">${p.items.map(i => renderItem(i, p)).join('')}</div>`;
+  }
+  const text = p.html ? safeTelegramHtml(p.html) : linkify(p.text);
+  const when = new Date(p.date);
+  return `<article class="card">${media}<div class="body"><div class="caption">${text}</div>` +
+    `<div class="meta"><span title="${esc(isNaN(when) ? '' : when.toLocaleString())}">${esc(timeAgo(p.date))}${p.edited ? ' · edited' : ''}</span></div></div></article>`;
+}
+
+async function api(path) {
+  const r = await fetch(path, { cache: 'no-store', headers: authHeaders });
+  if (!r.ok) { const e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
+  return r.json();
+}
+
+function showError(err, retry) {
+  const msg = err.status === 401
+    ? 'Please open this app from the Telegram bot.'
+    : 'Could not load posts. Check your connection and try again.';
+  const box = document.createElement('div');
+  box.className = 'empty';
+  box.innerHTML = `<div>${esc(msg)}</div>` + (err.status === 401 ? '' : '<button>Retry</button>');
+  box.querySelector('button')?.addEventListener('click', () => { box.remove(); retry(); });
+  feed.appendChild(box);
+}
+
+function skeletons() {
+  feed.innerHTML = '<div class="card skeleton"></div><div class="card skeleton"></div>';
+}
+
+async function loadMore(reset = false) {
+  if (loading || (finished && !reset)) return;
+  loading = true;
+  if (reset) { cursor = null; finished = false; footer.innerHTML = ''; if (!feed.children.length) skeletons(); }
+  try {
+    const data = await api('/api/posts' + (cursor ? `?before=${cursor}` : ''));
+    if (reset) feed.innerHTML = '';
+    if (reset) topId = data.latest_id;
+    backupUrl = data.backup_url || backupUrl;
+    if (!data.posts.length && reset) {
+      feed.innerHTML = '<div class="empty">No posts yet.</div>';
+    } else {
+      feed.insertAdjacentHTML('beforeend', data.posts.map(renderPost).join(''));
+    }
+    cursor = data.next_cursor;
+    finished = !cursor;
+    footer.innerHTML = backupUrl
+      ? `<a class="btn" href="${esc(backupUrl)}" target="_blank">📢 Backup Channel</a>` : '';
+    pill.hidden = true;
+  } catch (err) {
+    if (reset) feed.innerHTML = '';
+    showError(err, () => loadMore(reset));
+    finished = true;  // stop the infinite scroll from hammering a failing server
+  } finally {
+    loading = false;
+  }
+}
+
+async function refresh() {
+  refreshBtn.classList.add('spin');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  await loadMore(true);
+  refreshBtn.classList.remove('spin');
+}
+
+async function checkNew() {
+  if (document.hidden || loading) return;
+  try {
+    const { latest_id } = await api('/api/latest');
+    if (topId && latest_id > topId) pill.hidden = false;
+  } catch {}
+}
+
+// Infinite scroll
+new IntersectionObserver(entries => {
+  if (entries[0].isIntersecting && feed.children.length && !feed.querySelector('.skeleton')) loadMore();
+}, { rootMargin: '500px' }).observe(sentinel);
+
+refreshBtn.addEventListener('click', refresh);
+pill.addEventListener('click', refresh);
+setInterval(checkNew, 30000);
+document.addEventListener('visibilitychange', checkNew);
+
+// Image viewer
+const lightbox = $('lightbox');
+document.addEventListener('click', e => {
+  const img = e.target.closest('img.media');
+  if (img) { lightbox.querySelector('img').src = img.dataset.full || img.src; lightbox.classList.add('open'); }
 });
-load();
+lightbox.addEventListener('click', () => { lightbox.classList.remove('open'); lightbox.querySelector('img').src = ''; });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') lightbox.click(); });
+
+// In Telegram's in-app browser, open external URLs through the WebApp API
+// (t.me links open inside Telegram itself).
+document.addEventListener('click', event => {
+  const a = event.target.closest('a[href]');
+  if (!a || !tg) return;
+  let url;
+  try { url = new URL(a.href, location.href); } catch { return; }
+  if (!['https:', 'http:'].includes(url.protocol)) return;
+  if (url.origin === location.origin) return;  // our own files: let the browser handle it
+  event.preventDefault();
+  if (url.hostname === 't.me' && typeof tg.openTelegramLink === 'function') tg.openTelegramLink(url.href);
+  else if (typeof tg.openLink === 'function') tg.openLink(url.href);
+  else window.open(url.href, '_blank');
+});
+
+loadMore(true);
 </script>
 </body>
 </html>

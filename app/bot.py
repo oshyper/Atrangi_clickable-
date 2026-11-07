@@ -2,7 +2,9 @@ import asyncio
 import csv
 import io
 import logging
+import os
 import tempfile
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -41,9 +43,14 @@ broadcast_running: set[int] = set()
 
 # ----------------------------------------------------------------- helpers
 
+# Changes on every deploy. Added to the Mini App URL so Telegram's in-app browser can
+# never keep showing an old cached copy of the page after an update.
+APP_VERSION = (os.getenv("RAILWAY_GIT_COMMIT_SHA", "")[:8] or str(int(time.time())))
+
+
 def main_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Open Channel", web_app=WebAppInfo(url=APP_URL))],
+        [InlineKeyboardButton(text="Open Channel", web_app=WebAppInfo(url=f"{APP_URL}/?v={APP_VERSION}"))],
         [InlineKeyboardButton(text="Backup Channel", url=BACKUP_CHANNEL_URL)],
     ])
 

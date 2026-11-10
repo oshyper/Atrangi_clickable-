@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from starlette.background import BackgroundTask
 
 from app.config import BACKUP_CHANNEL_URL, BOT_TOKEN, POSTS_PAGE_SIZE, REQUIRE_TG_AUTH
-from app.db import get_post, get_posts_page, init_db, latest_post_id
+from app.db import get_post, get_posts_page, init_db, is_banned, latest_post_id, touch_user
 from app.security import make_media_token, validate_init_data, verify_media_token
 
 TG_API = "https://api.telegram.org"
@@ -44,8 +44,13 @@ def authorize(request: Request):
     """Returns a media token when auth is enabled, None when it is disabled."""
     if not REQUIRE_TG_AUTH:
         return None
-    if not validate_init_data(request.headers.get("x-init-data", ""), BOT_TOKEN):
+    data = validate_init_data(request.headers.get("x-init-data", ""), BOT_TOKEN)
+    if not data:
         raise HTTPException(401, "Please open this app from Telegram.")
+    uid = (data.get("user") or {}).get("id")
+    if uid and is_banned(uid):
+        raise HTTPException(403, "Access denied.")
+    request.state.uid = uid
     return make_media_token(BOT_TOKEN)
 
 
@@ -137,6 +142,9 @@ async def posts(request: Request,
                 limit: int = Query(POSTS_PAGE_SIZE, ge=1, le=50),
                 before: int | None = Query(None, ge=1)):
     token = authorize(request)
+    uid = getattr(request.state, "uid", None)
+    if uid and before is None:
+        touch_user(uid)  # opening the Mini App counts as activity (/stats "active")
     rows, has_more = get_posts_page(limit, before)
     groups = _group_rows(rows)
     cursor = min((r["id"] for r in rows), default=None)

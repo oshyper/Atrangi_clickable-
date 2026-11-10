@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta, timezone
 
 from dotenv import load_dotenv
 
@@ -60,6 +61,45 @@ REQUIRE_TG_AUTH = _bool("REQUIRE_TG_AUTH", False)
 NOTIFY_ENABLED = _bool("NOTIFY_ENABLED", True)
 # Seconds to wait before notifying, so an album / burst of posts becomes ONE notification.
 NOTIFY_DELAY = _float("NOTIFY_DELAY", 8.0)
+
+# Instantly message every admin when someone starts / blocks / unblocks the bot.
+ADMIN_ALERTS = _bool("ADMIN_ALERTS", False)
+
+
+def _hhmm(name: str):
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return None
+    try:
+        h, m = (int(x) for x in raw.split(":"))
+        if 0 <= h < 24 and 0 <= m < 60:
+            return h, m
+    except ValueError:
+        pass
+    return None
+
+
+def _utc_offset(raw: str):
+    """'+05:30' -> timedelta. Falls back to India (+05:30) when empty/invalid."""
+    raw = (raw or "").strip() or "+05:30"
+    try:
+        sign = -1 if raw.startswith("-") else 1
+        h, _, m = raw.lstrip("+-").partition(":")
+        return sign * timedelta(hours=int(h), minutes=int(m or 0))
+    except ValueError:
+        return timedelta(hours=5, minutes=30)
+
+
+# All dates shown by the bot (user lists, reports, ...) use this timezone. Default: India (IST).
+_offset = _utc_offset(os.getenv("TIMEZONE_OFFSET", ""))
+LOCAL_TZ = timezone(_offset)
+TZ_LABEL = "IST" if _offset == timedelta(hours=5, minutes=30) else (
+    "UTC" + ("+" if _offset >= timedelta(0) else "-")
+    + f"{abs(int(_offset.total_seconds())) // 3600:02d}:{abs(int(_offset.total_seconds())) // 60 % 60:02d}"
+)
+
+# Daily statistics report to admins at "HH:MM" in the timezone above (default IST). Empty = off.
+DAILY_REPORT_TIME = _hhmm("DAILY_REPORT_TIME")
 
 POSTS_PAGE_SIZE = max(5, min(_int("POSTS_PAGE_SIZE", 20), 50))
 

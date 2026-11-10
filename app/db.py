@@ -59,7 +59,9 @@ def init_db():
             blocked_at TEXT,
             last_broadcast_at TEXT,
             last_broadcast_status TEXT DEFAULT '',
-            notify INTEGER NOT NULL DEFAULT 1
+            notify INTEGER NOT NULL DEFAULT 1,
+            banned INTEGER NOT NULL DEFAULT 0,
+            banned_at TEXT
         )""")
         # Safe migration for databases created by older versions.
         _ensure_columns(c, "users", {
@@ -68,7 +70,18 @@ def init_db():
             "last_broadcast_at": "TEXT",
             "last_broadcast_status": "TEXT DEFAULT ''",
             "notify": "INTEGER NOT NULL DEFAULT 1",
+            "banned": "INTEGER NOT NULL DEFAULT 0",
+            "banned_at": "TEXT",
         })
+        c.execute("""CREATE TABLE IF NOT EXISTS admins (
+            user_id INTEGER PRIMARY KEY,
+            added_by INTEGER,
+            added_at TEXT NOT NULL
+        )""")
+        c.execute("""CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )""")
 
         c.execute("""CREATE TABLE IF NOT EXISTS posts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -101,9 +114,11 @@ def init_db():
 
 # ----------------------------------------------------------------- users
 
-def upsert_user(user_id, username, first_name):
+def upsert_user(user_id, username, first_name) -> bool:
+    """Create or refresh a user. Returns True when this is a brand-new user."""
     now = _now()
     with conn() as c:
+        is_new = c.execute("SELECT 1 FROM users WHERE user_id=?", (user_id,)).fetchone() is None
         c.execute("""INSERT INTO users
                      (user_id,username,first_name,created_at,last_seen,is_blocked)
                      VALUES(?,?,?,?,?,0)
@@ -114,6 +129,7 @@ def upsert_user(user_id, username, first_name):
                      is_blocked=0,
                      blocked_at=NULL""",
                   (user_id, username or "", first_name or "", now, now))
+        return is_new
 
 
 def set_user_blocked(user_id, blocked: bool):
@@ -154,7 +170,7 @@ def get_broadcast_users():
     """Everyone who has not blocked the bot (admin broadcasts ignore the mute setting)."""
     with conn() as c:
         return [int(r["user_id"]) for r in c.execute(
-            "SELECT user_id FROM users WHERE is_blocked=0 ORDER BY user_id"
+            "SELECT user_id FROM users WHERE is_blocked=0 AND banned=0 ORDER BY user_id"
         ).fetchall()]
 
 
@@ -162,36 +178,147 @@ def get_notify_users():
     """Users who should receive 'new post' notifications."""
     with conn() as c:
         return [int(r["user_id"]) for r in c.execute(
-            "SELECT user_id FROM users WHERE is_blocked=0 AND notify=1 ORDER BY user_id"
+            "SELECT user_id FROM users WHERE is_blocked=0 AND banned=0 AND notify=1 ORDER BY user_id"
         ).fetchall()]
 
 
-def member_stats():
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+def member_stats(today_start=None):
+    now = datetime.now(timezone.utc)
+
+    def ago(days=0, hours=0):
+        return (now - timedelta(days=days, hours=hours)).isoformat()
+
     with conn() as c:
-        total = c.execute("SELECT COUNT(*) n FROM users").fetchone()["n"]
-        blocked = c.execute("SELECT COUNT(*) n FROM users WHERE is_blocked=1").fetchone()["n"]
-        muted = c.execute("SELECT COUNT(*) n FROM users WHERE is_blocked=0 AND notify=0").fetchone()["n"]
-        recent = c.execute("SELECT COUNT(*) n FROM users WHERE last_seen >= ?", (cutoff,)).fetchone()["n"]
-        posts = c.execute("SELECT COUNT(*) n FROM posts").fetchone()["n"]
+        def n(sql, *params):
+            return c.execute(sql, params).fetchone()["n"]
+
+        total = n("SELECT COUNT(*) n FROM users")
+        blocked = n("SELECT COUNT(*) n FROM users WHERE is_blocked=1")
         return {
-            "total": total, "active": total - blocked, "blocked": blocked,
-            "muted": muted, "active_7d": recent, "posts": posts,
+            "total": total,
+            "active": total - blocked,
+            "blocked": blocked,
+            "muted": n("SELECT COUNT(*) n FROM users WHERE is_blocked=0 AND notify=0"),
+            "banned": n("SELECT COUNT(*) n FROM users WHERE banned=1"),
+            "new_today": n("SELECT COUNT(*) n FROM users WHERE created_at >= ?", today_start or ago(hours=24)),
+            "new_24h": n("SELECT COUNT(*) n FROM users WHERE created_at >= ?", ago(hours=24)),
+            "new_7d": n("SELECT COUNT(*) n FROM users WHERE created_at >= ?", ago(days=7)),
+            "new_30d": n("SELECT COUNT(*) n FROM users WHERE created_at >= ?", ago(days=30)),
+            "blocked_7d": n("SELECT COUNT(*) n FROM users WHERE is_blocked=1 AND blocked_at >= ?", ago(days=7)),
+            "active_24h": n("SELECT COUNT(*) n FROM users WHERE last_seen >= ?", ago(hours=24)),
+            "active_7d": n("SELECT COUNT(*) n FROM users WHERE last_seen >= ?", ago(days=7)),
+            "posts": n("SELECT COUNT(*) n FROM posts"),
         }
 
 
-def get_members(limit=100, blocked=None):
+USER_FILTERS = ("all", "active", "blocked", "muted", "new", "banned")
+
+
+def get_users_page(flt="all", page=1, per_page=10):
+    """Returns (rows, total, page). `page` is clamped to the valid range."""
+    flt = flt if flt in USER_FILTERS else "all"
+    where, params, order = {
+        "all": ("1=1", (), "created_at DESC"),
+        "active": ("is_blocked=0", (), "last_seen DESC"),
+        "blocked": ("is_blocked=1", (), "blocked_at DESC"),
+        "muted": ("is_blocked=0 AND notify=0", (), "last_seen DESC"),
+        "banned": ("banned=1", (), "banned_at DESC"),
+        "new": ("created_at >= ?", ((datetime.now(timezone.utc) - timedelta(hours=24)).isoformat(),),
+                "created_at DESC"),
+    }[flt]
     with conn() as c:
-        if blocked is None:
-            rows = c.execute(
-                "SELECT * FROM users ORDER BY last_seen DESC LIMIT ?", (limit,)
-            ).fetchall()
+        total = c.execute(f"SELECT COUNT(*) n FROM users WHERE {where}", params).fetchone()["n"]
+        pages = max(1, -(-total // per_page))
+        page = max(1, min(int(page), pages))
+        rows = c.execute(
+            f"SELECT * FROM users WHERE {where} ORDER BY {order} LIMIT ? OFFSET ?",
+            (*params, per_page, (page - 1) * per_page),
+        ).fetchall()
+        return [dict(r) for r in rows], total, page
+
+
+def get_user(user_id):
+    with conn() as c:
+        r = c.execute("SELECT * FROM users WHERE user_id=?", (user_id,)).fetchone()
+        return dict(r) if r else None
+
+
+def find_users(query, limit=5):
+    """Find by numeric id, @username (exact) or first-name prefix."""
+    q = (query or "").strip().lstrip("@")
+    if not q:
+        return []
+    with conn() as c:
+        if q.isdigit():
+            rows = c.execute("SELECT * FROM users WHERE user_id=?", (int(q),)).fetchall()
         else:
             rows = c.execute(
-                "SELECT * FROM users WHERE is_blocked=? ORDER BY last_seen DESC LIMIT ?",
-                (1 if blocked else 0, limit)
+                "SELECT * FROM users WHERE lower(username)=lower(?) OR lower(first_name) LIKE lower(?) || '%' "
+                "ORDER BY (lower(username)=lower(?)) DESC, last_seen DESC LIMIT ?",
+                (q, q, q, limit),
             ).fetchall()
         return [dict(r) for r in rows]
+
+
+# ---------------------------------------------------- ban / admins / settings
+
+def ban_user(user_id):
+    now = _now()
+    with conn() as c:
+        c.execute("INSERT OR IGNORE INTO users (user_id,username,first_name,created_at,last_seen) VALUES (?,?,?,?,?)",
+                  (user_id, "", "", now, now))
+        c.execute("UPDATE users SET banned=1, banned_at=? WHERE user_id=?", (now, user_id))
+
+
+def unban_user(user_id) -> bool:
+    with conn() as c:
+        return c.execute("UPDATE users SET banned=0, banned_at=NULL WHERE user_id=? AND banned=1",
+                         (user_id,)).rowcount == 1
+
+
+def is_banned(user_id) -> bool:
+    with conn() as c:
+        r = c.execute("SELECT banned FROM users WHERE user_id=?", (user_id,)).fetchone()
+        return bool(r and r["banned"])
+
+
+def touch_user(user_id):
+    """Record that the user opened the Mini App (keeps 'active' statistics honest)."""
+    with conn() as c:
+        c.execute("UPDATE users SET last_seen=? WHERE user_id=?", (_now(), user_id))
+
+
+def add_admin(user_id, added_by) -> bool:
+    with conn() as c:
+        return c.execute("INSERT OR IGNORE INTO admins (user_id,added_by,added_at) VALUES (?,?,?)",
+                         (user_id, added_by, _now())).rowcount == 1
+
+
+def remove_admin(user_id) -> bool:
+    with conn() as c:
+        return c.execute("DELETE FROM admins WHERE user_id=?", (user_id,)).rowcount == 1
+
+
+def get_admin_rows():
+    with conn() as c:
+        return [dict(r) for r in c.execute("SELECT * FROM admins ORDER BY added_at").fetchall()]
+
+
+def get_setting(key, default=None):
+    with conn() as c:
+        r = c.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+        return r["value"] if r else default
+
+
+def set_setting(key, value):
+    with conn() as c:
+        c.execute("INSERT INTO settings (key,value) VALUES (?,?) "
+                  "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, value))
+
+
+def delete_setting(key):
+    with conn() as c:
+        c.execute("DELETE FROM settings WHERE key=?", (key,))
 
 
 # ----------------------------------------------------------------- posts
@@ -266,3 +393,24 @@ def backup_db(dest_path):
     finally:
         dst.close()
         src.close()
+
+
+def recent_posts(limit=10):
+    with conn() as c:
+        return [dict(r) for r in c.execute("SELECT * FROM posts ORDER BY id DESC LIMIT ?", (limit,)).fetchall()]
+
+
+def delete_post(message_id) -> int:
+    """Remove a post (and the whole album it belongs to) from the Mini App. Returns rows deleted."""
+    deleted = 0
+    with conn() as c:
+        for r in c.execute("SELECT channel_id, media_group_id FROM posts WHERE message_id=?",
+                           (message_id,)).fetchall():
+            if r["media_group_id"]:
+                cur = c.execute("DELETE FROM posts WHERE channel_id=? AND media_group_id=?",
+                                (r["channel_id"], r["media_group_id"]))
+            else:
+                cur = c.execute("DELETE FROM posts WHERE channel_id=? AND message_id=?",
+                                (r["channel_id"], message_id))
+            deleted += cur.rowcount
+    return deleted

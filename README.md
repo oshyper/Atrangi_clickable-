@@ -36,18 +36,40 @@ with one persistent SQLite volume.
 - New-post notifications are batched: an album or several quick posts = ONE notification
 - Users can `/mute` and `/unmute` notifications; blocked users are skipped automatically
 - Real-time block/unblock detection (`my_chat_member`)
-- Admin: `/stats`, `/broadcast`, `/cancel`, `/export` (users CSV), `/backup` (database file)
+- Admin panel with a full command menu, user management, ban/unban, add admins inside the bot, editable welcome message, notification switch, IST dates (see below)
+- Optional instant admin alerts (`ADMIN_ALERTS=true`) and daily report (`DAILY_REPORT_TIME=21:00`)
 - Rate-limit (flood) handling on broadcasts and notifications
 
-## Admin commands
+## Admin commands (all of them are also in the bot's **Menu** button)
 
-| Command | What it does |
-|---|---|
-| `/stats` | total / active / blocked / muted / active in 7 days / posts stored |
-| `/broadcast` | then send any message; or reply to a message with `/broadcast`; or `/broadcast text` |
-| `/cancel` | cancel a running broadcast |
-| `/export` | users as a CSV file |
-| `/backup` | consistent copy of the SQLite database — **use it regularly** |
+Send `/help` to the bot as an admin to see the full panel. All dates are shown in **IST** (change with `TIMEZONE_OFFSET`).
+
+| Group | Command | What it does |
+|---|---|---|
+| Users | `/stats` | total started, active, blocked, muted, banned, joined today (IST) / 24h / 7d / 30d, blocked in 7d, active 24h/7d, posts |
+| | `/users [all\|active\|blocked\|muted\|new\|banned]` | browse users with buttons (filters + Prev/Next) |
+| | `/blocked`, `/newusers` | users who blocked the bot / joined in the last 24h |
+| | `/user ID\|@username` | full details of one user |
+| | `/export [filter]` | users as CSV (`/export blocked`, ...) |
+| Broadcast | `/broadcast` | then send any message; or reply to a message with `/broadcast`; or `/broadcast text` |
+| | `/cancel` | cancel a running broadcast |
+| Moderation | `/ban ID`, `/unban ID`, `/banned` | banned users are ignored by the bot, skipped in broadcasts/notifications, and (with `REQUIRE_TG_AUTH=true`) cannot open the Mini App |
+| Mini App | `/posts` | last 10 stored posts with their message IDs |
+| | `/delpost MESSAGE_ID` | remove a post (whole album) from the Mini App. Telegram bots cannot see channel deletions, so use this for posts you deleted in the channel |
+| Settings | `/notifications on\|off` | switch new-post notifications without redeploying |
+| | `/setwelcome TEXT`, `/resetwelcome` | change the welcome message (bold/italic/links are kept) |
+| Access | `/admins` | list admins |
+| | `/addadmin ID`, `/removeadmin ID` | add/remove admins from inside the bot (**primary owners only**) |
+| Info | `/status` | bot username, uptime, version, users, DB size, settings |
+| | `/backup` | consistent copy of the SQLite database - **use it regularly** |
+
+**Primary owners** are the IDs in the `ADMIN_IDS` variable. They can add/remove other admins with `/addadmin` and `/removeadmin`; added admins have every command except those two. Admins added in the bot are stored in the database (keep the Railway volume!).
+
+Optional extras: `ADMIN_ALERTS=true` (instant message when someone starts / blocks / unblocks the bot) and `DAILY_REPORT_TIME=21:00` (daily stats report to every admin, IST).
+
+## About "blocked" numbers
+
+Telegram tells the bot about a block in real time (`my_chat_member`), and also when a broadcast/notification fails with "Forbidden". Users who blocked the bot *before* this version was installed are detected the first time a broadcast or notification is sent to them, so run one broadcast to refresh the count.
 
 ## Security
 

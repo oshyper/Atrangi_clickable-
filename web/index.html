@@ -131,7 +131,7 @@ function timeAgo(iso) {
   if (s < 3600) return Math.floor(s / 60) + 'm ago';
   if (s < 86400) return Math.floor(s / 3600) + 'h ago';
   if (s < 7 * 86400) return Math.floor(s / 86400) + 'd ago';
-  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
 }
 function fmtSize(b) {
   if (!b) return '';
@@ -170,7 +170,7 @@ function renderPost(p) {
   const text = p.html ? safeTelegramHtml(p.html) : linkify(p.text);
   const when = new Date(p.date);
   return `<article class="card">${media}<div class="body"><div class="caption">${text}</div>` +
-    `<div class="meta"><span title="${esc(isNaN(when) ? '' : when.toLocaleString())}">${esc(timeAgo(p.date))}${p.edited ? ' · edited' : ''}</span></div></div></article>`;
+    `<div class="meta"><span title="${esc(isNaN(when) ? '' : when.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) + ' IST')}">${esc(timeAgo(p.date))}${p.edited ? ' · edited' : ''}</span></div></div></article>`;
 }
 
 async function api(path) {
@@ -180,12 +180,12 @@ async function api(path) {
 }
 
 function showError(err, retry) {
-  const msg = err.status === 401
-    ? 'Please open this app from the Telegram bot.'
+  const msg = err.status === 401 ? 'Please open this app from the Telegram bot.'
+    : err.status === 403 ? 'Access denied.'
     : 'Could not load posts. Check your connection and try again.';
   const box = document.createElement('div');
   box.className = 'empty';
-  box.innerHTML = `<div>${esc(msg)}</div>` + (err.status === 401 ? '' : '<button>Retry</button>');
+  box.innerHTML = `<div>${esc(msg)}</div>` + (err.status === 401 || err.status === 403 ? '' : '<button>Retry</button>');
   box.querySelector('button')?.addEventListener('click', () => { box.remove(); retry(); });
   feed.appendChild(box);
 }
